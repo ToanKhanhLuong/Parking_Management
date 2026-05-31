@@ -13,7 +13,7 @@ import {
 } from "react-bootstrap";
 import { loginAPI } from "../services/authService";
 import { useNavigate } from "react-router-dom";
-import { useI18n, I18nProvider } from "../providers/I18nProvider";
+import { useI18n, I18nProvider } from "../context/I18nProvider";
 
 function LoginContent({ theme, setTheme }) {
     const [username, setUsername] = useState("");

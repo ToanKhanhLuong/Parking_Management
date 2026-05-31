@@ -1,5 +1,5 @@
 import { createContext, useContext, useState } from "react";
-import resources from "./i18n";
+import resources from "../data/i18n";
 
 const I18nContext = createContext();
 
