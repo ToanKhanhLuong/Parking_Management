@@ -1,17 +1,22 @@
-const mysql = require('mysql2/promise'); // Bắt buộc phải có chữ /promise ở đây
+const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
+    port: process.env.DB_PORT, // thêm dòng này
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
+
+    ssl: {
+        rejectUnauthorized: false
+    },
+
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
 });
 
-// Thêm đoạn này để test kết nối cho bạn yên tâm
 pool.getConnection()
     .then(() => {
         console.log("✅ Đã kết nối thành công tới MySQL database!");
