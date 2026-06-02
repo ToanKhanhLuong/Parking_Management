@@ -14,7 +14,6 @@ export const loginAPI = async (username, password) => {
   const data = await response.json();
 
   if (!response.ok) {
-    // Ném thẳng lỗi ra, bên file Login.jsx đã có sẵn try/catch để hứng cái lỗi này rồi
     throw new Error(data.message || "Đăng nhập thất bại!");
   }
 

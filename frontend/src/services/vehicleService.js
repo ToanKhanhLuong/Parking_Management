@@ -1,7 +1,6 @@
 // src/services/vehicleService.js
 
 const API_URL = "http://localhost:8888/api/vehicles";
-
 // Helper để sinh Headers có kèm JWT Token tự động
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
