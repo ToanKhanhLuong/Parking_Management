@@ -11,9 +11,9 @@ import {
     ToggleButtonGroup,
     ToggleButton,
 } from "react-bootstrap";
-import { loginAPI } from "../services/authService";
 import { useNavigate } from "react-router-dom";
-import { useI18n, I18nProvider } from "../context/I18nProvider";
+import { useI18n } from "../context/I18nProvider";
+import { useAuth } from "../hooks/useAuth";
 
 function LoginContent({ theme, setTheme }) {
     const [username, setUsername] = useState("");
@@ -23,6 +23,7 @@ function LoginContent({ theme, setTheme }) {
 
     const navigate = useNavigate();
     const { lang, setLang, t } = useI18n();
+    const { login } = useAuth();
 
     const isDark = theme === "dark";
 
@@ -36,9 +37,7 @@ function LoginContent({ theme, setTheme }) {
         setError("");
 
         try {
-            const data = await loginAPI(username, password);
-            localStorage.setItem("token", data.token);
-            localStorage.setItem("user", JSON.stringify(data.user));
+            await login(username, password);
             navigate("/dashboard");
         } catch (err) {
             setError(err.message || t("login:error"));
@@ -360,8 +359,6 @@ export default function Login() {
     const [theme, setTheme] = useState("light");
 
     return (
-        <I18nProvider>
-            <LoginContent theme={theme} setTheme={setTheme} />
-        </I18nProvider>
+        <LoginContent theme={theme} setTheme={setTheme} />
     );
 }

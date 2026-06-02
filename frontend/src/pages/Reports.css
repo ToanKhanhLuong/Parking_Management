@@ -1,0 +1,187 @@
+/* src/pages/Reports.css */
+
+/* Tab bar custom styling */
+.reports-tabs-bar {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--border-color);
+  margin-bottom: 24px;
+  padding-bottom: 2px;
+}
+
+.reports-tab-btn {
+  background: none;
+  border: none;
+  padding: 10px 20px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  border-radius: 8px 8px 0 0;
+}
+
+.reports-tab-btn:hover {
+  color: var(--text-main);
+  background-color: #f1f5f9;
+}
+
+.reports-tab-btn.active-tab {
+  color: var(--primary);
+}
+
+.reports-tab-btn.active-tab::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: var(--primary);
+  border-radius: 2px;
+}
+
+/* Charts Layout Grid */
+.reports-charts-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1024px) {
+  .reports-charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.doughnut-legend-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+  padding-left: 16px;
+}
+
+.legend-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.legend-color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+/* Check-in Logs list styles */
+.logs-plate-input-group {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+/* Alert History custom list card */
+.alert-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.alert-item-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  padding: 16px 20px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.alert-item-card:hover {
+  transform: translateX(4px);
+  border-color: #fecaca;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.05);
+}
+
+.alert-item-card.audit-warn {
+  border-left: 4px solid var(--danger);
+}
+
+.alert-card-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.alert-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.alert-card-msg {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-main);
+}
+
+.alert-card-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: flex;
+  gap: 12px;
+}
+
+.alert-image-thumb {
+  width: 80px;
+  height: 50px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.alert-image-thumb:hover {
+  transform: scale(1.1);
+}
+
+.alert-confidence-badge {
+  background-color: #fef2f2;
+  color: var(--danger);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #fee2e2;
+}
+
+.tab-badge {
+  background-color: #f1f5f9;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 6px;
+  font-weight: 700;
+}
+
+.reports-tab-btn.active-tab .tab-badge {
+  background-color: var(--primary);
+  color: white;
+}

@@ -7,6 +7,8 @@ const db = require("./config/db");
 
 // Import Router
 const authRoutes = require("./routes/authRoutes");
+const vehicleRoutes = require("./routes/vehicleRoutes");
+const configRoutes = require("./routes/configRoutes");
 
 const app = express();
 
@@ -25,6 +27,8 @@ app.get("/", (req, res) => {
 
 // Khai báo đường dẫn API cho Auth
 app.use("/api/auth", authRoutes);
+app.use("/api/vehicles", vehicleRoutes);
+app.use("/api/config", configRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
