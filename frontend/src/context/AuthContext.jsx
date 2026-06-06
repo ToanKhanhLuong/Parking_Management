@@ -1,21 +1,74 @@
-import { createContext, useState } from "react";
+import { createContext, useState, useEffect } from "react";
 import { loginAPI } from "../services/authService";
 
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const storedUser = localStorage.getItem("user");
-      return storedUser ? JSON.parse(storedUser) : null;
-    } catch (e) {
-      console.error("Failed to parse user from localStorage", e);
-      return null;
+  // Khôi phục phiên từ localStorage nếu chưa quá 15 phút không thao tác
+  const [token, setToken] = useState(() => {
+    const savedToken = localStorage.getItem("token");
+    const lastActive = localStorage.getItem("lastActive");
+    if (savedToken && lastActive) {
+      const inactiveTime = Date.now() - Number(lastActive);
+      const timeoutLimit = 15 * 60 * 1000; // 15 phút không thao tác
+      if (inactiveTime < timeoutLimit) {
+        localStorage.setItem("lastActive", String(Date.now()));
+        return savedToken;
+      }
     }
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("lastActive");
+    return null;
   });
 
-  const [token, setToken] = useState(() => localStorage.getItem("token") || null);
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem("user");
+    const lastActive = localStorage.getItem("lastActive");
+    if (savedUser && lastActive) {
+      const inactiveTime = Date.now() - Number(lastActive);
+      const timeoutLimit = 15 * 60 * 1000;
+      if (inactiveTime < timeoutLimit) {
+        try {
+          return JSON.parse(savedUser);
+        } catch {
+          return null;
+        }
+      }
+    }
+    return null;
+  });
+
   const [loading, setLoading] = useState(false);
+
+  // Theo dõi hoạt động của người dùng để cập nhật thời gian hoạt động cuối
+  useEffect(() => {
+    if (!token) return;
+
+    let lastUpdate = Date.now();
+    const handleUserActivity = () => {
+      const now = Date.now();
+      if (now - lastUpdate > 10000) { // Cập nhật tối đa 1 lần mỗi 10 giây để tránh lag
+        localStorage.setItem("lastActive", String(now));
+        lastUpdate = now;
+      }
+    };
+
+    window.addEventListener("mousemove", handleUserActivity);
+    window.addEventListener("keydown", handleUserActivity);
+    window.addEventListener("click", handleUserActivity);
+    window.addEventListener("scroll", handleUserActivity);
+
+    // Cập nhật ngay khi mount
+    localStorage.setItem("lastActive", String(Date.now()));
+
+    return () => {
+      window.removeEventListener("mousemove", handleUserActivity);
+      window.removeEventListener("keydown", handleUserActivity);
+      window.removeEventListener("click", handleUserActivity);
+      window.removeEventListener("scroll", handleUserActivity);
+    };
+  }, [token]);
 
   const login = async (username, password) => {
     setLoading(true);
@@ -26,6 +79,7 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("lastActive", String(Date.now()));
       return data;
     } catch (error) {
       console.error("Login service failed:", error);
@@ -40,6 +94,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("lastActive");
   };
 
   const isAuthenticated = !!token;

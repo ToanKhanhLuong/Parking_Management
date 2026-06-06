@@ -142,7 +142,7 @@ CREATE TABLE payments (
     FOREIGN KEY (session_id) REFERENCES parking_sessions(id) ON DELETE CASCADE
 );
 
--- 11. Đánh chỉ mục (Tối ưu tốc độ tìm kiếm siêu tốc)
+--11. Đánh chỉ mục (Tối ưu tốc độ tìm kiếm siêu tốc)
 CREATE INDEX idx_plate_number ON vehicles(plate_number);
 CREATE INDEX idx_card_code ON vehicles(card_code);
 CREATE INDEX idx_session_plate ON parking_sessions(plate_number);

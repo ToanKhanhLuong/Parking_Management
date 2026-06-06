@@ -9,10 +9,10 @@ exports.validateVehicleInput = (req, res, next) => {
             return res.status(400).json({ message: "Họ và tên chủ xe không được để trống!" });
         }
         
-        // Biểu thức chính quy hỗ trợ mọi chữ cái Tiếng Việt có dấu, chữ hoa, chữ thường và khoảng trắng
-        const nameRegex = /^[a-zA-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠàáâãèéêìíòóôõùúăđĩũơƯĂÂÊÔƠƯưăâêôơư\s']+$/;
+        // Biểu thức chính quy hỗ trợ mọi chữ cái tiếng Việt, tiếng Anh, nước ngoài và khoảng trắng
+        const nameRegex = /^[\p{L}\p{M}\s'-]+$/u;
         if (!nameRegex.test(representative_name)) {
-            return res.status(400).json({ message: "Họ và tên không hợp lệ! Tên chỉ được chứa chữ cái tiếng Việt và khoảng trắng." });
+            return res.status(400).json({ message: "Họ và tên không hợp lệ! Tên chỉ được chứa chữ cái tiếng Việt, tiếng Anh hoặc nước ngoài và khoảng trắng." });
         }
     }
 

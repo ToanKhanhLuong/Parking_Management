@@ -1,5 +1,14 @@
 const db = require('../config/db');
 
+// Helper to format Date object into YYYY-MM-DD in local timezone
+const formatLocalDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+
 // 1. Lấy danh sách toàn bộ xe có kèm thông tin chủ xe và trạng thái đỗ xe gần nhất
 exports.getAllVehicles = async (req, res) => {
     try {
@@ -139,11 +148,11 @@ exports.createVehicle = async (req, res) => {
         if (!finalExpiryDate && card_type === 'Vé Tháng') {
             const defaultDate = new Date();
             defaultDate.setMonth(defaultDate.getMonth() + 1); // 1 tháng
-            finalExpiryDate = defaultDate.toISOString().split('T')[0];
+            finalExpiryDate = formatLocalDate(defaultDate);
         } else if (!finalExpiryDate && card_type === 'Thẻ VIP') {
             const defaultDate = new Date();
             defaultDate.setFullYear(defaultDate.getFullYear() + 1); // 1 năm
-            finalExpiryDate = defaultDate.toISOString().split('T')[0];
+            finalExpiryDate = formatLocalDate(defaultDate);
         }
 
         // Thêm xe mới vào bảng
@@ -173,40 +182,168 @@ exports.createVehicle = async (req, res) => {
 exports.extendVehicle = async (req, res) => {
     try {
         const { id } = req.params;
-        const { months } = req.body;
+        const { months, paymentMethod } = req.body;
 
         if (!months || isNaN(months) || Number(months) <= 0) {
             return res.status(400).json({ message: 'Số tháng gia hạn không hợp lệ!' });
         }
 
-        const [vehicles] = await db.execute('SELECT expiry_date, card_type FROM vehicles WHERE id = ?', [id]);
+        const [vehicles] = await db.execute('SELECT expiry_date, card_type, vehicle_type FROM vehicles WHERE id = ?', [id]);
         if (vehicles.length === 0) {
             return res.status(404).json({ message: 'Không tìm thấy phương tiện đăng ký!' });
         }
 
         const vehicle = vehicles[0];
-        let baseDate = new Date();
+
+        // Lấy bảng giá đỗ xe để tính tổng tiền
+        const [ratesRows] = await db.execute('SELECT * FROM parking_rates ORDER BY id DESC LIMIT 1');
+        const rates = ratesRows.length > 0 ? ratesRows[0] : { car_monthly: 1500000, motorbike_monthly: 120000 };
+        const monthlyRate = vehicle.vehicle_type === 'Ô tô' ? Number(rates.car_monthly) : Number(rates.motorbike_monthly);
         
-        // Nếu vé chưa hết hạn, tính từ ngày hết hạn cũ. Nếu đã hết hạn, tính từ ngày hôm nay.
+        // Tính tổng tiền có chiết khấu
+        const basePrice = monthlyRate * Number(months);
+        let amount = basePrice;
+        if (Number(months) === 3) amount = basePrice * 0.95;
+        else if (Number(months) === 6) amount = basePrice * 0.9;
+
+        // Tính ngày gia hạn mới dự kiến
+        let baseDate = new Date();
         if (vehicle.expiry_date && new Date(vehicle.expiry_date) > new Date()) {
             baseDate = new Date(vehicle.expiry_date);
         }
-
         baseDate.setMonth(baseDate.getMonth() + Number(months));
-        const newExpiryDate = baseDate.toISOString().split('T')[0];
+        const newExpiryDate = formatLocalDate(baseDate);
 
-        await db.execute(
-            'UPDATE vehicles SET expiry_date = ?, status = "ACTIVE" WHERE id = ?',
-            [newExpiryDate, id]
-        );
+        const method = paymentMethod === 'QR' ? 'QR' : 'Tiền mặt';
 
-        res.status(200).json({
-            message: `Gia hạn vé thành công thêm ${months} tháng!`,
-            newExpiryDate
-        });
+        if (method === 'Tiền mặt') {
+            // Thanh toán tiền mặt: Cập nhật hạn dùng xe ngay lập tức và ghi nhận thanh toán PAID
+            await db.execute(
+                'UPDATE vehicles SET expiry_date = ?, status = "ACTIVE" WHERE id = ?',
+                [newExpiryDate, id]
+            );
+
+            // Ghi nhận lịch sử thanh toán thành công
+            await db.execute(
+                `INSERT INTO payments (session_id, amount, payment_type, payment_method, status, paid_at, vehicle_id) 
+                 VALUES (NULL, ?, 'Vé Tháng', 'Tiền mặt', 'PAID', CURRENT_TIMESTAMP, ?)`,
+                [amount, id]
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: `Gia hạn vé thành công thêm ${months} tháng (Thanh toán: Tiền mặt)!`,
+                newExpiryDate,
+                amount
+            });
+        } else {
+            // Thanh toán QR: Tạo hóa đơn PENDING, chưa gia hạn xe ngay. Trả về thông tin thanh toán để frontend hiển thị QR.
+            const [insertResult] = await db.execute(
+                `INSERT INTO payments (session_id, amount, payment_type, payment_method, status, paid_at, vehicle_id) 
+                 VALUES (NULL, ?, 'Vé Tháng', 'QR', 'PENDING', NULL, ?)`,
+                [amount, id]
+            );
+
+            const paymentId = insertResult.insertId;
+
+            return res.status(200).json({
+                success: true,
+                message: 'Đã tạo yêu cầu thanh toán chuyển khoản QR.',
+                paymentId,
+                amount,
+                paymentMethod: 'QR',
+                months: Number(months),
+                newExpiryDate
+            });
+        }
     } catch (error) {
         console.error("Lỗi gia hạn vé:", error);
         res.status(500).json({ message: 'Lỗi server khi gia hạn vé!' });
+    }
+};
+
+// 3.1 Lấy trạng thái thanh toán hóa đơn
+exports.getPaymentStatus = async (req, res) => {
+    try {
+        const { paymentId } = req.params;
+        const [rows] = await db.execute('SELECT status, amount, vehicle_id FROM payments WHERE id = ?', [paymentId]);
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Không tìm thấy hóa đơn thanh toán!' });
+        }
+        res.status(200).json(rows[0]);
+    } catch (error) {
+        console.error('Lỗi kiểm tra trạng thái thanh toán:', error);
+        res.status(500).json({ message: 'Lỗi server khi kiểm tra trạng thái thanh toán!' });
+    }
+};
+
+// 3.2 Giả lập chuyển khoản thành công
+exports.simulatePaymentSuccess = async (req, res) => {
+    const conn = await db.getConnection();
+    try {
+        await conn.beginTransaction();
+        const { paymentId } = req.params;
+        const { months } = req.body; // số tháng gia hạn truyền từ frontend
+
+        const [payments] = await conn.execute(
+            'SELECT status, amount, vehicle_id FROM payments WHERE id = ?', 
+            [paymentId]
+        );
+        if (payments.length === 0) {
+            await conn.rollback();
+            return res.status(404).json({ message: 'Không tìm thấy hóa đơn thanh toán!' });
+        }
+
+        const payment = payments[0];
+        if (payment.status === 'PAID') {
+            await conn.rollback();
+            return res.status(200).json({ success: true, message: 'Hóa đơn đã được thanh toán trước đó!' });
+        }
+
+        // Lấy thông tin phương tiện để gia hạn
+        const [vehicles] = await conn.execute(
+            'SELECT expiry_date FROM vehicles WHERE id = ?', 
+            [payment.vehicle_id]
+        );
+        if (vehicles.length === 0) {
+            await conn.rollback();
+            return res.status(404).json({ message: 'Không tìm thấy xe tương ứng với hóa đơn này!' });
+        }
+
+        const vehicle = vehicles[0];
+        const monthsCount = Number(months) || 1;
+
+        let baseDate = new Date();
+        if (vehicle.expiry_date && new Date(vehicle.expiry_date) > new Date()) {
+            baseDate = new Date(vehicle.expiry_date);
+        }
+        baseDate.setMonth(baseDate.getMonth() + monthsCount);
+        const newExpiryDate = formatLocalDate(baseDate);
+
+        // Cập nhật trạng thái hóa đơn thành PAID và thời gian thanh toán
+        await conn.execute(
+            'UPDATE payments SET status = "PAID", paid_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [paymentId]
+        );
+
+        // Cập nhật gia hạn hạn sử dụng xe
+        await conn.execute(
+            'UPDATE vehicles SET expiry_date = ?, status = "ACTIVE" WHERE id = ?',
+            [newExpiryDate, payment.vehicle_id]
+        );
+
+        await conn.commit();
+        res.status(200).json({
+            success: true,
+            message: 'Giả lập chuyển khoản thành công! Vé đã được gia hạn.',
+            newExpiryDate
+        });
+    } catch (error) {
+        await conn.rollback();
+        console.error('Lỗi giả lập thanh toán:', error);
+        res.status(500).json({ message: 'Lỗi server khi thực hiện giả lập thanh toán!' });
+    } finally {
+        conn.release();
     }
 };
 
